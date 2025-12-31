@@ -4,7 +4,7 @@ import { db, Product } from "../../utils/mockDb";
 import { Button } from "../../components/ui/button";
 import { useCart } from "../../context/CartContext";
 import { toast } from "sonner";
-import { WireframePlaceholder } from "../../components/WireframePlaceholder";
+import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -30,16 +30,11 @@ export function ProductDetailPage() {
         <div className="w-full lg:w-3/5 space-y-4">
           {/* Main Image */}
           <div className="aspect-[1/1] overflow-hidden bg-brand-gray/5 border border-brand-light/5 relative group">
-            <WireframePlaceholder label={product.name} />
-          </div>
-
-          {/* Detail Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {(product.detailImages && product.detailImages.length > 0 ? product.detailImages : [1, 2, 3, 4, 5, 6]).map((img, idx) => (
-              <div key={idx} className="aspect-[1/1] overflow-hidden bg-brand-gray/5 border border-brand-light/5 relative group">
-                <WireframePlaceholder label={`DETAIL VIEW ${idx + 1}`} />
-              </div>
-            ))}
+            <ImageWithFallback
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+            />
           </div>
         </div>
 
@@ -51,11 +46,11 @@ export function ProductDetailPage() {
               <p className="text-lg text-brand-light/60 tracking-wider">{product.price.toLocaleString()} KRW</p>
             </div>
 
-            <div className="border-t border-b border-brand-gray py-6 space-y-6 text-[12px] text-brand-light/70 uppercase tracking-widest leading-loose"> {/* Reduced py-10 to py-6 */}
-              <p>Minimalist design with premium materials.</p>
-              <p>Focusing on silhouette and texture.</p>
-              <p>Made in Korea.</p>
-            </div>
+            {product.description && (
+              <div className="border-t border-b border-brand-gray py-6 text-[12px] text-brand-light/70 tracking-widest leading-loose whitespace-pre-line">
+                {product.description}
+              </div>
+            )}
 
             <Button 
               className="w-full h-10 text-[10px] font-bold tracking-[0.4em] uppercase rounded-none bg-brand-cyan text-brand-black hover:bg-brand-light transition-colors"
@@ -81,8 +76,16 @@ export function ProductDetailPage() {
             {/* Accordion Sections */}
             <div className="space-y-0 border-t border-brand-light/10">
               {[
-                { id: 'details', title: 'Details & Size', content: 'Premium materials, minimalist silhouette. Designed for daily wear with a focus on durability and comfort. Available in multiple sizes.' },
-                { id: 'shipping', title: 'Shipping & Returns', content: 'Standard shipping takes 3-5 business days. Returns are accepted within 14 days of delivery in original condition.' }
+                { 
+                  id: 'details', 
+                  title: 'Details & Size', 
+                  content: product.details || 'Premium materials, minimalist silhouette. Designed for daily wear with a focus on durability and comfort. Available in multiple sizes.' 
+                },
+                { 
+                  id: 'shipping', 
+                  title: 'Shipping & Returns', 
+                  content: product.shippingInfo || 'Standard shipping takes 3-5 business days. Returns are accepted within 14 days of delivery in original condition.' 
+                }
               ].map((section) => (
                 <div key={section.id} className="border-b border-brand-light/10">
                   <button
@@ -119,6 +122,21 @@ export function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Detail Grid - Moved to bottom */}
+      {product.detailImages && product.detailImages.length > 0 && (
+        <div className="mt-20 grid grid-cols-2 gap-4">
+          {product.detailImages.map((img, idx) => (
+            <div key={idx} className="aspect-[1/1] overflow-hidden bg-brand-gray/5 border border-brand-light/5 relative group">
+              <ImageWithFallback
+                src={img}
+                alt={`${product.name} detail ${idx + 1}`}
+                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

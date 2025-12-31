@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { db, Product } from "../../utils/mockDb";
-import { cn } from "@/lib/utils";
+import { cn } from "../../../../lib/utils";
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { WireframePlaceholder } from "../../components/WireframePlaceholder";
 
@@ -29,7 +29,7 @@ export function ShopPage() {
         </div>
 
         {/* Product Grid - 3 Columns with Badge Detail */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-24">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-12 md:gap-x-10 md:gap-y-24">
           {filteredProducts.map((product, idx) => (
             <Link key={product.id} href={`/shop/${product.id}`}>
               <div className="group cursor-pointer">
@@ -42,7 +42,7 @@ export function ShopPage() {
                   
                   {/* Status Badges - Unified Schematic Rectangles */}
                   <div className="absolute top-0 left-0 z-10 flex flex-col items-start gap-[1px]">
-                    {(idx === 0 || idx === 1) && (
+                    {product.isSoldOut && (
                       <div className="bg-brand-cyan text-brand-black px-3 py-1.5 text-[7px] tracking-[0.2em] uppercase font-bold border-r border-b border-brand-black/10">
                         SOLD OUT
                       </div>

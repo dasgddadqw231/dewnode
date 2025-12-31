@@ -1,42 +1,60 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { db, Product } from "../../utils/mockDb";
-import { cn } from "@/lib/utils";
-import { WireframePlaceholder } from "../../components/WireframePlaceholder";
+import { cn } from "../../../../lib/utils";
+import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 
 export function SearchResultsPage() {
   const [location] = useLocation();
+  const [results, setResults] = useState<Product[]>([]);
+  
+  // Get query from URL whenever location changes or component mounts
   const searchParams = new URLSearchParams(window.location.search);
   const query = searchParams.get("search") || "";
-  const [results, setResults] = useState<Product[]>([]);
 
   useEffect(() => {
-    if (query) {
-      const filtered = db.products.getAll().filter(p => 
-        p.name.toLowerCase().includes(query.toLowerCase()) || 
-        p.description?.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered);
-    } else {
-      setResults([]);
-    }
-  }, [query]);
+    const performSearch = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const query = searchParams.get("search") || "";
+      
+      if (query) {
+        const filtered = db.products.getAll().filter(p => 
+          p.name.toLowerCase().includes(query.toLowerCase()) || 
+          (p.description && p.description.toLowerCase().includes(query.toLowerCase()))
+        );
+        setResults(filtered);
+      } else {
+        setResults([]);
+      }
+    };
+
+    // Initial search
+    performSearch();
+
+    // Listen for custom search update event
+    const handleSearchUpdate = () => {
+      performSearch();
+    };
+
+    window.addEventListener('search-update', handleSearchUpdate);
+    
+    // Also listen for popstate (browser back/forward)
+    window.addEventListener('popstate', handleSearchUpdate);
+
+    return () => {
+      window.removeEventListener('search-update', handleSearchUpdate);
+      window.removeEventListener('popstate', handleSearchUpdate);
+    };
+  }, [location]);
 
   return (
     <div className="w-full bg-brand-black min-h-screen pt-[120px]">
       {/* Search Result Header - Schematic Style */}
-      <div className="max-w-[1440px] mx-auto px-8 py-20 border-b border-brand-light/5">
+      <div className="max-w-[1440px] mx-auto px-8 pb-20 border-b border-brand-light/5">
         <div className="flex flex-col items-center text-center">
-          <div className="w-px h-12 bg-linear-to-b from-brand-cyan/40 to-transparent mb-8" />
-          <h1 className="text-[10px] tracking-[1em] text-brand-light/40 uppercase mb-4">
-            Search Results For
-          </h1>
           <h2 className="text-[24px] md:text-[32px] font-light tracking-[0.4em] text-brand-light uppercase">
-            "{query}"
+            {query}
           </h2>
-          <div className="mt-8 text-[9px] tracking-[0.2em] text-brand-light/60">
-            {results.length} ITEMS FOUND
-          </div>
         </div>
       </div>
 
@@ -47,9 +65,10 @@ export function SearchResultsPage() {
               <Link key={product.id} href={`/shop/${product.id}`}>
                 <div className="group cursor-pointer">
                   <div className="aspect-[4/5] mb-6 overflow-hidden relative bg-brand-gray/5 border border-brand-light/5">
-                    <WireframePlaceholder 
-                      label={product.name} 
-                      className="transition-all duration-1000 group-hover:scale-105"
+                    <ImageWithFallback 
+                      src={product.image}
+                      alt={product.name} 
+                      className="w-full h-full object-cover grayscale transition-all duration-1000 group-hover:scale-105 group-hover:grayscale-0"
                     />
                     
                     <div className="absolute top-0 left-0 z-10">

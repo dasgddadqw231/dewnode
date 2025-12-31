@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { cn } from "@/lib/utils";
+import { cn } from "../../../lib/utils";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -8,6 +8,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     { href: "/admin", label: "Dashboard" },
     { href: "/admin/products", label: "Product Management" },
     { href: "/admin/orders", label: "Order Management" },
+    { href: "/admin/sales", label: "Sales Analytics" },
     { href: "/admin/hero", label: "Hero Image" },
     { href: "/admin/collections", label: "Collection Image" },
   ];

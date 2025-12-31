@@ -23,6 +23,13 @@ export function UserLayout({ children }: UserLayoutProps) {
             children
           )}
         </main>
+        
+        <div className="w-full bg-brand-black pb-8 flex justify-center text-center">
+          {location !== "/collection" && (
+            null
+          )}
+        </div>
+
         <Footer />
         <CartDrawer />
       </div>

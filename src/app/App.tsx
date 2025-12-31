@@ -10,6 +10,7 @@ import { OrderHistoryPage } from "./pages/user/OrderHistoryPage";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminProducts } from "./pages/admin/AdminProducts";
 import { AdminOrders } from "./pages/admin/AdminOrders";
+import { AdminSales } from "./pages/admin/AdminSales";
 import { AdminHero } from "./pages/admin/AdminHero";
 import { AdminCollections } from "./pages/admin/AdminCollections";
 import { Toaster } from "sonner";
@@ -19,9 +20,8 @@ function App() {
     <>
       <Switch>
         {/* Admin Routes */}
-        <Route path="/admin*">
-          <AdminRoutes />
-        </Route>
+        <Route path="/admin" component={AdminRoutes} />
+        <Route path="/admin/:rest*" component={AdminRoutes} />
 
         {/* User Routes */}
         <Route path="*">
@@ -40,6 +40,7 @@ function AdminRoutes() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/products" component={AdminProducts} />
         <Route path="/admin/orders" component={AdminOrders} />
+        <Route path="/admin/sales" component={AdminSales} />
         <Route path="/admin/hero" component={AdminHero} />
         <Route path="/admin/collections" component={AdminCollections} />
       </Switch>

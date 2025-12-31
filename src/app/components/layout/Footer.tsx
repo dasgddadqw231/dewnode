@@ -1,26 +1,24 @@
 import { Link } from "wouter";
-import logoImg from "figma:asset/c68abe051f9bb3901828d7472af82d8f5b8062f7.png";
+import logoImg from "figma:asset/125e01c0368c5cef3f56649d3abb745a00e9ee3d.png";
+import { Instagram } from "lucide-react";
 
 export function Footer() {
   return (
     <footer className="bg-brand-black border-t border-brand-gray mt-auto">
-      <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between items-start gap-12 pt-10 pb-16 px-8">
-        <div className="flex flex-col gap-5 items-start">
-          <Link href="/">
-            <img src={logoImg} alt="DEW&ODE" className="h-7 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity -ml-1" />
-          </Link>
-          
-          <div className="flex flex-col gap-1 text-[10px] font-medium tracking-[0.15em] text-brand-light/60 uppercase">
-            <a href="#" className="hover:text-brand-cyan transition-colors">TERMS OF USE</a>
-            <a href="#" className="hover:text-brand-cyan transition-colors">PRIVACY POLICY</a>
+      <div className="w-full relative flex items-center justify-center md:justify-between py-16 px-8 max-w-[1440px] mx-auto">
+        <Link href="/">
+          <img src={logoImg} alt="DEW&ODE" className="h-7 w-auto object-contain" />
+        </Link>
+        
+        <a 
+          href="#"
+          className="absolute right-8 md:static group flex items-center justify-center transition-all duration-500"
+          aria-label="Instagram"
+        >
+          <div className="w-8 h-8 flex items-center justify-center border border-brand-light/10 group-hover:border-brand-cyan/40 group-hover:bg-brand-cyan/[0.02] transition-all">
+            <Instagram className="w-3 h-3 text-brand-light/30 group-hover:text-brand-cyan transition-colors" strokeWidth={1} />
           </div>
-
-          <div className="flex flex-col gap-1 text-brand-light/30 text-[9px] tracking-[0.15em] font-light uppercase">
-            <span>COMPANY: DEW&ODE</span>
-            <span>TEL: 010-0000-0000</span>
-            <span>ADDRESS: SEOUL, KOREA</span>
-          </div>
-        </div>
+        </a>
       </div>
     </footer>
   );

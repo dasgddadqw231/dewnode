@@ -4,39 +4,126 @@ import { X, Minus, Plus } from "lucide-react";
 import { Button } from "../ui/button";
 import { toast } from "sonner";
 import { db } from "../../utils/mockDb";
-import { useState } from "react";
-import { WireframePlaceholder } from "../WireframePlaceholder";
+import { useState, useEffect } from "react";
+import { ImageWithFallback } from "../figma/ImageWithFallback";
+import logoImg from "figma:asset/125e01c0368c5cef3f56649d3abb745a00e9ee3d.png";
+import { useLocation } from "wouter";
+import { projectId, publicAnonKey } from "../../../../utils/supabase/info";
+
+// Daum Postcode API types
+declare global {
+  interface Window {
+    daum: any;
+  }
+}
 
 export function CartDrawer() {
   const { isOpen, closeCart, items, removeItem, updateQuantity, total, clearCart } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [email, setEmail] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isLinkSent, setIsLinkSent] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [isSendingLink, setIsSendingLink] = useState(false);
+  const [postcode, setPostcode] = useState("");
+  const [address, setAddress] = useState("");
+  const [_, setLocation] = useLocation();
 
-  const handleSendCode = () => {
+  const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-445cb580`;
+
+  // Load Daum Postcode API script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  // Check for Magic Link callback on mount
+  useEffect(() => {
+    const checkMagicLink = async () => {
+      const hash = window.location.hash;
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      
+      if (accessToken) {
+        try {
+          const response = await fetch(`${API_URL}/verify-magic-link`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${publicAnonKey}`
+            },
+            body: JSON.stringify({ access_token: accessToken })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success && data.email) {
+            setEmail(data.email);
+            setIsVerified(true);
+            localStorage.setItem('verifiedEmail', data.email);
+            toast.success("EMAIL VERIFIED SUCCESSFULLY");
+            // Clear hash from URL
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch (error) {
+          console.error('Magic Link verification error:', error);
+        }
+      }
+      
+      // Check if email was previously verified
+      const verifiedEmail = localStorage.getItem('verifiedEmail');
+      if (verifiedEmail) {
+        setEmail(verifiedEmail);
+        setIsVerified(true);
+      }
+    };
+    
+    checkMagicLink();
+  }, []);
+
+  const handleSendMagicLink = async () => {
     if (!email || !email.includes('@')) {
       toast.error("PLEASE ENTER A VALID EMAIL");
       return;
     }
-    setIsCodeSent(true);
-    toast.success("VERIFICATION CODE SENT TO EMAIL");
-  };
-
-  const handleVerifyCode = () => {
-    setIsVerifying(true);
-    // Mock verification logic
-    setTimeout(() => {
-      if (verificationCode === "1234") {
-        setIsVerified(true);
-        toast.success("EMAIL VERIFIED");
+    
+    setIsSendingLink(true);
+    
+    try {
+      console.log('Sending Magic Link to:', email);
+      
+      const response = await fetch(`${API_URL}/send-magic-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({ email })
+      });
+      
+      const data = await response.json();
+      
+      console.log('Magic Link response:', data);
+      
+      if (data.success) {
+        setIsLinkSent(true);
+        localStorage.setItem('pendingVerificationEmail', email);
+        toast.success("VERIFICATION LINK SENT TO EMAIL");
       } else {
-        toast.error("INVALID CODE (HINT: 1234)");
+        console.error('Magic Link send failed:', data);
+        toast.error(data.details || data.error || "FAILED TO SEND LINK");
       }
-      setIsVerifying(false);
-    }, 1000);
+    } catch (error) {
+      console.error('Send Magic Link error:', error);
+      toast.error("FAILED TO SEND VERIFICATION LINK");
+    } finally {
+      setIsSendingLink(false);
+    }
   };
 
   const handleCheckout = async (e: React.FormEvent) => {
@@ -47,6 +134,7 @@ export function CartDrawer() {
     const address = (form.elements.namedItem('address') as HTMLInputElement).value;
     const phone = (form.elements.namedItem('phone') as HTMLInputElement).value;
 
+    // Create order
     db.orders.create({
       email,
       customerName: name,
@@ -62,10 +150,36 @@ export function CartDrawer() {
       }))
     });
 
+    // Update stock for each product
+    items.forEach(item => {
+      const product = db.products.getById(item.id);
+      if (product) {
+        const newStock = product.stock - item.quantity;
+        db.products.update(item.id, { 
+          stock: newStock,
+          isSoldOut: newStock <= 0
+        });
+      }
+    });
+
     clearCart();
     closeCart();
     setIsCheckingOut(false);
     toast.success("Order placed successfully! Check your email for details.");
+  };
+
+  const handleLogoClick = () => {
+    closeCart();
+    setLocation("/");
+  };
+
+  const openPostcode = () => {
+    new window.daum.Postcode({
+      oncomplete: (data: any) => {
+        setPostcode(data.zonecode);
+        setAddress(data.address);
+      }
+    }).open();
   };
 
   return (
@@ -86,10 +200,25 @@ export function CartDrawer() {
             transition={{ type: "spring", damping: 30, stiffness: 200 }}
             className="fixed right-0 top-0 h-full w-full max-w-md bg-brand-black z-50 shadow-[0_0_50px_rgba(0,0,0,0.5)] border-l border-brand-gray flex flex-col text-brand-light"
           >
-            <div className="p-8 flex items-center justify-between border-b border-brand-gray">
-              <h2 className="text-[12px] font-medium tracking-[0.2em] uppercase">CART ({items.length})</h2>
-              <button onClick={closeCart} className="p-2 hover:bg-brand-gray/50 rounded-full transition-colors cursor-pointer text-brand-light">
-                <X size={20} />
+            {/* Header with Centered Logo */}
+            <div className="p-6 flex items-center justify-between border-b border-brand-gray relative">
+              {/* Invisible spacer to balance the close button */}
+              <div className="w-9 h-9 opacity-0 pointer-events-none"></div>
+
+              {/* Centered Logo */}
+              <button 
+                onClick={handleLogoClick}
+                className="absolute left-1/2 -translate-x-1/2 hover:opacity-80 transition-opacity"
+              >
+                <img src={logoImg} alt="DEW&ODE" className="h-6 w-auto object-contain" />
+              </button>
+
+              {/* Close Button */}
+              <button 
+                onClick={closeCart} 
+                className="p-2 hover:bg-brand-gray/50 rounded-full transition-colors cursor-pointer text-brand-light z-10"
+              >
+                <X size={20} strokeWidth={1} />
               </button>
             </div>
 
@@ -113,42 +242,34 @@ export function CartDrawer() {
                           onChange={(e) => setEmail(e.target.value)}
                           disabled={isVerified}
                           placeholder="EMAIL" 
-                          className="flex-1 p-4 bg-brand-black border border-brand-gray text-[11px] tracking-widest focus:outline-none focus:border-brand-cyan transition-colors placeholder:text-brand-light/20 disabled:opacity-50" 
+                          className="flex-1 p-4 bg-brand-black border border-brand-gray text-[11px] tracking-widest focus:outline-none focus:border-brand-cyan transition-colors placeholder:text-brand-light/20 disabled:opacity-50 disabled:bg-brand-gray/20" 
                         />
                         {!isVerified && (
                           <Button 
                             type="button"
                             variant="outline"
-                            onClick={handleSendCode}
-                            className="px-4 text-[9px] tracking-widest border-brand-gray text-brand-light hover:bg-brand-gray rounded-none h-auto"
+                            onClick={handleSendMagicLink}
+                            disabled={isSendingLink || !email}
+                            className="px-4 text-[9px] tracking-widest border-brand-gray text-brand-light hover:bg-brand-gray rounded-none h-auto disabled:opacity-50"
                           >
-                            {isCodeSent ? "RESEND" : "SEND CODE"}
+                            {isSendingLink ? "SENDING..." : isLinkSent ? "RESEND" : "SEND LINK"}
                           </Button>
                         )}
                       </div>
                       
-                      {isCodeSent && !isVerified && (
-                        <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
-                          <input 
-                            type="text" 
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value)}
-                            placeholder="VERIFICATION CODE (1234)" 
-                            className="flex-1 p-4 bg-brand-black border border-brand-cyan text-[11px] tracking-widest focus:outline-none transition-colors placeholder:text-brand-light/20" 
-                          />
-                          <Button 
-                            type="button"
-                            onClick={handleVerifyCode}
-                            disabled={isVerifying}
-                            className="px-4 bg-brand-cyan text-brand-black text-[9px] font-bold tracking-widest hover:bg-brand-light rounded-none h-auto"
-                          >
-                            {isVerifying ? "..." : "VERIFY"}
-                          </Button>
+                      {isLinkSent && !isVerified && (
+                        <div className="p-4 bg-brand-cyan/10 border border-brand-cyan/30 animate-in fade-in slide-in-from-top-2">
+                          <p className="text-[10px] text-brand-cyan tracking-widest uppercase leading-relaxed">
+                            📧 VERIFICATION LINK SENT!<br/>
+                            CHECK YOUR EMAIL AND CLICK THE LINK TO VERIFY
+                          </p>
                         </div>
                       )}
                       
                       {isVerified && (
-                        <p className="text-[9px] text-brand-cyan tracking-widest uppercase">✓ EMAIL VERIFIED</p>
+                        <div className="flex items-center gap-2 p-3 bg-brand-cyan/10 border border-brand-cyan/30 animate-in fade-in">
+                          <span className="text-[11px] text-brand-cyan tracking-widest uppercase font-bold">✓ EMAIL VERIFIED</span>
+                        </div>
                       )}
                     </div>
 
@@ -160,6 +281,7 @@ export function CartDrawer() {
                           type="text" 
                           name="postcode" 
                           readOnly 
+                          value={postcode}
                           placeholder="POSTCODE" 
                           className="flex-1 p-4 bg-brand-black border border-brand-gray text-[11px] tracking-widest focus:outline-none placeholder:text-brand-light/20" 
                         />
@@ -167,10 +289,7 @@ export function CartDrawer() {
                           type="button"
                           variant="outline"
                           className="px-6 h-auto text-[10px] tracking-widest border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/10 rounded-none"
-                          onClick={() => {
-                            // Daum Postcode API trigger logic will go here
-                            toast.info("ADDRESS SEARCH API LOADING...");
-                          }}
+                          onClick={openPostcode}
                         >
                           SEARCH
                         </Button>
@@ -179,6 +298,7 @@ export function CartDrawer() {
                         type="text" 
                         name="address" 
                         readOnly 
+                        value={address}
                         placeholder="BASE ADDRESS" 
                         className="w-full p-4 bg-brand-black border border-brand-gray text-[11px] tracking-widest focus:outline-none placeholder:text-brand-light/20" 
                       />
@@ -191,7 +311,10 @@ export function CartDrawer() {
                     </div>
 
                     <div className="pt-4 border-t border-brand-gray/30 flex justify-between items-end">
-                      <span className="text-[10px] text-brand-light/40 tracking-[0.2em] uppercase">Total Order Amount</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-brand-light/40 tracking-[0.2em] uppercase">Total Order Amount</span>
+                        <span className="text-[9px] text-brand-light/30 tracking-[0.1em] uppercase">Free Shipping on All Orders</span>
+                      </div>
                       <span className="text-[18px] font-medium tracking-widest text-brand-cyan">{total.toLocaleString()} KRW</span>
                     </div>
                   </div>
@@ -205,7 +328,7 @@ export function CartDrawer() {
 
                   <div className="pt-6 space-y-4">
                     <p className="text-[10px] text-brand-cyan/80 tracking-widest text-center uppercase">
-                      입금 후 주문하기를 눌러주세요
+                      PLEASE CLICK ORDER AFTER DEPOSIT
                     </p>
                     <div className="flex gap-4">
                       <Button type="button" variant="outline" className="flex-1 border-brand-gray text-brand-light rounded-none h-14 text-[10px] tracking-widest uppercase" onClick={() => setIsCheckingOut(false)}>Back</Button>
@@ -216,8 +339,12 @@ export function CartDrawer() {
               ) : (
                 items.map(item => (
                   <div key={item.id} className="flex gap-6">
-                    <div className="w-20 h-24 flex-shrink-0 overflow-hidden">
-                      <WireframePlaceholder label="PRODUCT" />
+                    <div className="w-20 h-24 flex-shrink-0 overflow-hidden border border-brand-light/5">
+                      <ImageWithFallback 
+                        src={item.image} 
+                        alt={item.name}
+                        className="w-full h-full object-cover grayscale" 
+                      />
                     </div>
                     <div className="flex-1 flex flex-col justify-between py-1">
                       <div className="flex justify-between items-start">
